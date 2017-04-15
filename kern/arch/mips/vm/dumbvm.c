@@ -256,7 +256,7 @@ as_create(void)
 void
 as_destroy(struct addrspace *as)
 {
-	int start_page, i;
+        int start_page, i, counter;
 	int* pages_map;
 
 	pages_map = ram_getpmap();
@@ -265,20 +265,39 @@ as_destroy(struct addrspace *as)
 	start_page = as->as_pbase1 / 4096;
 	pages_map[start_page] = as->as_npages1;
 	for(i = 1; i < (int)as->as_npages1; i++) {
-		pages_map[start_page+i] = 0;
+		pages_map[start_page+i] = -1;
 	}
+	/*join free space if available forward*/
+	counter = 0;
+	while(pages_map[i++] == -1) {
+	  counter++;
+	}
+	pages_map[start_page] += counter;
+
 	/*data segment*/
 	start_page = as->as_pbase2 / 4096;
 	pages_map[start_page] = as->as_npages2;
 	for(i = 1; i < (int)as->as_npages2; i++) {
-		pages_map[start_page+i] = 0;
+		pages_map[start_page+i] = -1;
 	}
+	counter = 0;
+	while(pages_map[i++] == -1) {
+	  counter++;
+	}
+	pages_map[start_page] += counter;
+
 	/*stack*/
-	start_page = as->as_stackpbase;
+	start_page = as->as_stackpbase / 4096;
 	pages_map[start_page] = 18;
 	for(i = 1; i < 18; i++) {
-		pages_map[start_page+i] = 0;
+		pages_map[start_page+i] = -1;
 	}
+	counter = 0;
+	while(pages_map[i++] == -1) {
+	  counter++;
+	}
+	pages_map[start_page] += counter;
+
 	kfree(as);
 }
 
