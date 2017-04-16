@@ -256,7 +256,7 @@ as_create(void)
 void
 as_destroy(struct addrspace *as)
 {
-        int start_page, i, counter;
+        int start_page, i;
 	int* pages_map;
 
 	pages_map = ram_getpmap();
@@ -268,11 +268,20 @@ as_destroy(struct addrspace *as)
 		pages_map[start_page+i] = -1;
 	}
 	/*join free space if available forward*/
-	counter = 0;
-	while(pages_map[i++] == -1) {
-	  counter++;
+	i = start_page + as->as_npages1;
+	if(pages_map[i] > 0) {
+	  pages_map[start_page] += pages_map[i];
+	  pages_map[i] = -1;
 	}
-	pages_map[start_page] += counter;
+	/*join free space if available backward*/
+	i = start_page - 1;
+	if(pages_map[i] != 0) {
+	  while(pages_map[i--] == -1);
+	  i++;
+	  pages_map[i] += pages_map[start_page];
+	  pages_map[start_page] = -1;
+	}
+	
 
 	/*data segment*/
 	start_page = as->as_pbase2 / 4096;
@@ -280,11 +289,20 @@ as_destroy(struct addrspace *as)
 	for(i = 1; i < (int)as->as_npages2; i++) {
 		pages_map[start_page+i] = -1;
 	}
-	counter = 0;
-	while(pages_map[i++] == -1) {
-	  counter++;
+	/*join free space if available forward*/
+	i = start_page + as->as_npages2;
+	if(pages_map[i] > 0) {
+	  pages_map[start_page] += pages_map[i];
+	  pages_map[i] = -1;
 	}
-	pages_map[start_page] += counter;
+	/*join free space if available backward*/
+	i = start_page - 1;
+	if(pages_map[i] != 0) {
+	  while(pages_map[i--] == -1);
+	  i++;
+	  pages_map[i] += pages_map[start_page];
+	  pages_map[start_page] = -1;
+	}
 
 	/*stack*/
 	start_page = as->as_stackpbase / 4096;
@@ -292,11 +310,20 @@ as_destroy(struct addrspace *as)
 	for(i = 1; i < 18; i++) {
 		pages_map[start_page+i] = -1;
 	}
-	counter = 0;
-	while(pages_map[i++] == -1) {
-	  counter++;
+	/*join free space if available forward*/
+	i = start_page + 18;
+	if(pages_map[i] > 0) {
+	  pages_map[start_page] += pages_map[i];
+	  pages_map[i] = -1;
 	}
-	pages_map[start_page] += counter;
+	/*join free space if available backward*/
+	i = start_page - 1;
+	if(pages_map[i] != 0) {
+	  while(pages_map[i--] == -1);
+	  i++;
+	  pages_map[i] += pages_map[start_page];
+	  pages_map[start_page] = -1;
+	}
 
 	kfree(as);
 }
