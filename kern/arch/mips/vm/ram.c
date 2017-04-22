@@ -32,7 +32,7 @@
 #include <vm.h>
 #include <mainbus.h>
 
-int pages_map[256] = {0}; //1mb mem divided by 4kb page
+int* pages_map = NULL; //1mb mem divided by 4kb page
 vaddr_t firstfree;   /* first free virtual address; set by start.S */
 
 static paddr_t firstpaddr;  /* address of first free physical page */
@@ -49,6 +49,7 @@ ram_bootstrap(void)
 	size_t ramsize;
 	int i;
 	int firstpaddr_page;
+	int num_of_frames;
 
 	/* Get size of RAM. */
 	ramsize = mainbus_ramsize();
@@ -66,9 +67,12 @@ ram_bootstrap(void)
 
 	lastpaddr = ramsize;
 	firstpaddr = firstfree - MIPS_KSEG0;
-	firstpaddr_page = firstpaddr / 4096;
-	pages_map[firstpaddr_page] = 256 - firstpaddr_page;
-	for(i = firstpaddr_page + 1; i < 256; i++) {
+	num_of_frames = ramsize / PAGE_SIZE;
+	pages_map = kmalloc(num_of_frames * sizeof(int));
+	/*firstpaddr has been updated by last kmalloc!*/
+	firstpaddr_page = firstpaddr / PAGE_SIZE;
+	pages_map[firstpaddr_page] = num_of_frames - firstpaddr_page;
+	for(i = firstpaddr_page + 1; i < num_of_frames; i++) {
 	  pages_map[i] = -1;
 	}
 
@@ -106,34 +110,33 @@ paddr_t
 ram_stealmem(unsigned long npages)
 {
 	paddr_t paddr;
-	int i;
-	int j;
+	int i, j, size;
 	int old_space;
 
-	//size = npages * PAGE_SIZE;
-
-	/*searching space in the memory*/
-	for(i = 0; i < 256; i++) {
-	  if(pages_map[i] >= (int)npages) {
-	    old_space = pages_map[i];
-	    paddr = i * PAGE_SIZE;
-	    for(j = 0; j < (int)npages; j++) {
-	      pages_map[i+j] = 0;
+	if(pages_map != NULL) {
+	/*new dumbvm allocated, i can use it!*/
+	  for(i = 0; i < 256; i++) {
+	    if(pages_map[i] >= (int)npages) {
+	      old_space = pages_map[i];
+	      paddr = i * PAGE_SIZE;
+	      for(j = 0; j < (int)npages; j++) {
+		pages_map[i+j] = 0;
+	      }
+	      if(pages_map[i+j] == -1) {
+		pages_map[i+j] = old_space - (int)npages;
+	      }
+	      break;
 	    }
-	    if(pages_map[i+j] == -1) {
-	      pages_map[i+j] = old_space - (int)npages;
-	    }
-	    break;
 	  }
+	} else {
+	  /*first run of dumbvm*/
+	  size = npages * PAGE_SIZE;
+	  if (firstpaddr + size > lastpaddr) {
+	    return 0;
+	  }
+	  paddr = firstpaddr;
+	  firstpaddr += size;
 	}
-
-	//if (firstpaddr + size > lastpaddr) {
-	//	return 0;
-	//}
-
-	//paddr = firstpaddr;
-	//firstpaddr += size;
-
 	return paddr;
 }
 
