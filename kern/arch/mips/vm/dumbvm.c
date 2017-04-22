@@ -63,6 +63,7 @@
  * Wrap ram_stealmem in a spinlock.
  */
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
+static int kpages[256];
 
 void
 vm_bootstrap(void)
@@ -104,26 +105,35 @@ getppages(unsigned long npages)
 	return addr;
 }
 
+static void freeppages(paddr_t p_addr, long length) {
+  spinlock_acquire(&stealmem_lock);
+  ram_freemem(p_addr, length);
+  spinlock_release(&stealmem_lock);
+  return;
+}
+
 /* Allocate/free some kernel-space virtual pages */
 vaddr_t
 alloc_kpages(unsigned npages)
 {
 	paddr_t pa;
+	int frame;
 
 	dumbvm_can_sleep();
 	pa = getppages(npages);
+	frame = pa / 4096;
+	kpages[frame] = npages;
 	if (pa==0) {
 		return 0;
 	}
 	return PADDR_TO_KVADDR(pa);
 }
 
-void
-free_kpages(vaddr_t addr)
+void free_kpages(vaddr_t addr)
 {
-	/* nothing - leak the memory. */
-
-	(void)addr;
+  paddr_t paddr = addr - MIPS_KSEG0;
+  long frame = paddr / 4096;
+  freeppages(paddr, kpages[frame]);
 }
 
 void
@@ -256,74 +266,11 @@ as_create(void)
 void
 as_destroy(struct addrspace *as)
 {
-        int start_page, i;
-	int* pages_map;
 
-	pages_map = ram_getpmap();
 	dumbvm_can_sleep();
-	/*code segment*/
-	start_page = as->as_pbase1 / 4096;
-	pages_map[start_page] = as->as_npages1;
-	for(i = 1; i < (int)as->as_npages1; i++) {
-		pages_map[start_page+i] = -1;
-	}
-	/*join free space if available forward*/
-	i = start_page + as->as_npages1;
-	if(pages_map[i] > 0) {
-	  pages_map[start_page] += pages_map[i];
-	  pages_map[i] = -1;
-	}
-	/*join free space if available backward*/
-	i = start_page - 1;
-	if(pages_map[i] != 0) {
-	  while(pages_map[i--] == -1);
-	  i++;
-	  pages_map[i] += pages_map[start_page];
-	  pages_map[start_page] = -1;
-	}
-	
-
-	/*data segment*/
-	start_page = as->as_pbase2 / 4096;
-	pages_map[start_page] = as->as_npages2;
-	for(i = 1; i < (int)as->as_npages2; i++) {
-		pages_map[start_page+i] = -1;
-	}
-	/*join free space if available forward*/
-	i = start_page + as->as_npages2;
-	if(pages_map[i] > 0) {
-	  pages_map[start_page] += pages_map[i];
-	  pages_map[i] = -1;
-	}
-	/*join free space if available backward*/
-	i = start_page - 1;
-	if(pages_map[i] != 0) {
-	  while(pages_map[i--] == -1);
-	  i++;
-	  pages_map[i] += pages_map[start_page];
-	  pages_map[start_page] = -1;
-	}
-
-	/*stack*/
-	start_page = as->as_stackpbase / 4096;
-	pages_map[start_page] = 18;
-	for(i = 1; i < 18; i++) {
-		pages_map[start_page+i] = -1;
-	}
-	/*join free space if available forward*/
-	i = start_page + 18;
-	if(pages_map[i] > 0) {
-	  pages_map[start_page] += pages_map[i];
-	  pages_map[i] = -1;
-	}
-	/*join free space if available backward*/
-	i = start_page - 1;
-	if(pages_map[i] != 0) {
-	  while(pages_map[i--] == -1);
-	  i++;
-	  pages_map[i] += pages_map[start_page];
-	  pages_map[start_page] = -1;
-	}
+	freeppages(as->as_pbase1, as->as_npages1);
+	freeppages(as->as_pbase2, as->as_npages2);
+	freeppages(as->as_stackpbase, DUMBVM_STACKPAGES);
 
 	kfree(as);
 }

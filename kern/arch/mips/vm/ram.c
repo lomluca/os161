@@ -137,8 +137,29 @@ ram_stealmem(unsigned long npages)
 	return paddr;
 }
 
-int* ram_getpmap() {
-  return pages_map;
+void ram_freemem(paddr_t p_addr, long length) {
+
+  int start_page, i;
+
+  start_page = p_addr / 4096;
+  pages_map[start_page] = length;
+  for(i = 1; i < (int)length; i++) {
+    pages_map[start_page+i] = -1;
+  }
+  /*join free space if available forward*/
+  i = start_page + length;
+  if(pages_map[i] > 0) {
+    pages_map[start_page] += pages_map[i];
+    pages_map[i] = -1;
+  }
+  /*join free space if available backward*/
+  i = start_page - 1;
+  if(pages_map[i] != 0) {
+    while(pages_map[i--] == -1);
+    i++;
+    pages_map[i] += pages_map[start_page];
+    pages_map[start_page] = -1;
+  }
 }
 
 /*
