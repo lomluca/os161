@@ -23,10 +23,12 @@ void exit(int);
 
 void _exit(int code) {
 	struct thread *cur_t;
-	
+	struct proc* cur_p;
 	cur_t = curthread;
+	cur_p = curthread->t_proc;
 	cur_t->exit_code = code;
 	thread_exit();
+	proc_destroy(cur_p);
 	return;
 }
 	

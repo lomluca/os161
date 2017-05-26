@@ -12,4 +12,4 @@ main.o: ../../main/main.c ../../include/types.h \
  ../../include/synch.h ../../include/vm.h includelinks/machine/vm.h \
  ../../include/mainbus.h ../../include/vfs.h ../../include/device.h \
  ../../include/syscall.h ../../include/test.h ../../include/version.h \
- autoconf.h
+ opt-hello.h autoconf.h

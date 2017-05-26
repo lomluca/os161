@@ -40,6 +40,9 @@
 #include <current.h>
 #include <synch.h>
 
+/*ad-hoc lock_release function for condition variables*/
+void lock_release_atomic(struct lock* lock);
+
 ////////////////////////////////////////////////////////////
 //
 // Semaphore.
@@ -153,8 +156,18 @@ lock_create(const char *name)
                 kfree(lock);
                 return NULL;
         }
-
+	
         // add stuff here as needed
+
+	lock->lock_wc = wchan_create(lock->lk_name);
+	if (lock->lock_wc == NULL) {
+		kfree(lock->lk_name);
+		kfree(lock);
+		return NULL;
+	}
+
+	spinlock_init(&lock->lock_spl);
+        lock->owner = NULL;
 
         return lock;
 }
@@ -167,33 +180,59 @@ lock_destroy(struct lock *lock)
         // add stuff here as needed
 
         kfree(lock->lk_name);
+	kfree(lock->lock_wc);
         kfree(lock);
 }
 
 void
 lock_acquire(struct lock *lock)
 {
-        // Write this
+       KASSERT(lock != NULL);
+       KASSERT(curthread->t_in_interrupt == false);
 
-        (void)lock;  // suppress warning until code gets written
+	/* Use the semaphore spinlock to protect the wchan as well. */
+        //if(spinlock_do_i_hold(&lock->lock_spl) == false)
+        spinlock_acquire(&lock->lock_spl);
+        while (lock->owner != NULL) {
+		wchan_sleep(lock->lock_wc, &lock->lock_spl);
+        }
+        KASSERT(lock->owner == NULL);
+	lock->owner = curthread;
+	spinlock_release(&lock->lock_spl);
 }
 
 void
 lock_release(struct lock *lock)
 {
-        // Write this
+        KASSERT(lock != NULL);
+	KASSERT(lock_do_i_hold(lock) == true);
+	
+        
+        spinlock_acquire(&lock->lock_spl);
 
-        (void)lock;  // suppress warning until code gets written
+        lock->owner = NULL;
+	wchan_wakeone(lock->lock_wc, &lock->lock_spl);
+
+	spinlock_release(&lock->lock_spl);
+}
+
+void
+lock_release_atomic(struct lock* lock)
+{
+  KASSERT(lock != NULL);
+  KASSERT(lock_do_i_hold(lock) == true);
+  
+  lock->owner = NULL;
+  wchan_wakeone(lock->lock_wc, &lock->lock_spl); 
 }
 
 bool
 lock_do_i_hold(struct lock *lock)
 {
-        // Write this
-
-        (void)lock;  // suppress warning until code gets written
-
-        return true; // dummy until code gets written
+  if(lock->owner == curthread) {
+    return true;
+  }
+  return false;
 }
 
 ////////////////////////////////////////////////////////////
@@ -216,7 +255,6 @@ cv_create(const char *name)
                 kfree(cv);
                 return NULL;
         }
-
         // add stuff here as needed
 
         return cv;
@@ -236,23 +274,29 @@ cv_destroy(struct cv *cv)
 void
 cv_wait(struct cv *cv, struct lock *lock)
 {
-        // Write this
-        (void)cv;    // suppress warning until code gets written
-        (void)lock;  // suppress warning until code gets written
+  (void)cv;
+
+  spinlock_acquire(&lock->lock_spl);
+  lock_release_atomic(lock);
+  wchan_sleep(lock->lock_wc, &lock->lock_spl); 
+  spinlock_release(&lock->lock_spl);
+  lock_acquire(lock);
 }
 
 void
 cv_signal(struct cv *cv, struct lock *lock)
 {
-        // Write this
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+  (void)cv;
+    spinlock_acquire(&lock->lock_spl);
+    wchan_wakeone(lock->lock_wc, &lock->lock_spl); 
+    spinlock_release(&lock->lock_spl);
 }
 
 void
 cv_broadcast(struct cv *cv, struct lock *lock)
 {
-	// Write this
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+  (void)cv;
+  spinlock_acquire(&lock->lock_spl);
+  wchan_wakeall(lock->lock_wc, &lock->lock_spl);
+  spinlock_release(&lock->lock_spl);
 }
