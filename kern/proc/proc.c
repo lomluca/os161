@@ -59,9 +59,23 @@ struct proc *kproc;
  * Create a proc structure.
  */
 
-static pid_t next_pid = 0;
 static struct proc* pids[100];
-static int pids_count = 0;
+
+
+static pid_t addto_pid_table(struct proc* newproc) {
+  int next_pid;
+  //search the first pid available
+  for(next_pid = 2; next_pid < 100; next_pid++) {
+    if(pids[next_pid] == NULL) {
+      break;
+    }
+  }
+
+  kprintf("Ho assegnato il pid %d al processo\n", next_pid);
+  pids[next_pid] = newproc;
+  return next_pid;
+}
+
 
 static
 struct proc *
@@ -89,7 +103,7 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 	/* Bind to a new PID */
-	proc->pid = next_pid;
+	proc->pid = addto_pid_table(proc);
 	proc->sem = sem_create("wait_sem", 0);
 
 	return proc;
@@ -187,17 +201,11 @@ proc_destroy(struct proc *proc)
 	kfree(proc);
 }
 
-static void addto_pid_table(struct proc* newproc) {
-  pids[next_pid] = newproc;
-  pids_count++;
-  next_pid = pids_count;
-}
-
 int wait_proc(struct proc* proc) {
   P(proc->sem);
   int exit_code = proc->exit_code;
-  pids_count--;
-  next_pid = proc->pid;
+  pids[proc->pid] = NULL;
+  kprintf("Ho liberato il pid %d\n", proc->pid);
   proc_destroy(proc);
   return exit_code;
 }
@@ -229,9 +237,6 @@ proc_create_runprogram(const char *name)
 	if (newproc == NULL) {
 		return NULL;
 	}
-
-	/* update pids structure */
-	addto_pid_table(newproc);
 
 	/* VM fields */
 
