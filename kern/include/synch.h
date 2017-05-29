@@ -116,6 +116,7 @@ bool lock_do_i_hold(struct lock *);
 
 struct cv {
         char *cv_name;
+	struct spinlock cv_spl;
         // add what you need here
         // (don't forget to mark things volatile as needed
 	

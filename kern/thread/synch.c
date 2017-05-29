@@ -256,6 +256,7 @@ cv_create(const char *name)
                 return NULL;
         }
         // add stuff here as needed
+	spinlock_init(&cv->cv_spl);
 
         return cv;
 }
@@ -276,10 +277,12 @@ cv_wait(struct cv *cv, struct lock *lock)
 {
   (void)cv;
 
-  spinlock_acquire(&lock->lock_spl);
-  lock_release_atomic(lock);
-  wchan_sleep(lock->lock_wc, &lock->lock_spl); 
-  spinlock_release(&lock->lock_spl);
+  //acquisisco spinlock della cv
+  spinlock_acquire(&cv->cv_spl);
+  lock_release(lock);
+  wchan_sleep(lock->lock_wc, &cv->cv_spl); 
+  spinlock_release(&cv->cv_spl);
+  //rilascio spinlock della cv
   lock_acquire(lock);
 }
 
@@ -287,16 +290,16 @@ void
 cv_signal(struct cv *cv, struct lock *lock)
 {
   (void)cv;
-    spinlock_acquire(&lock->lock_spl);
-    wchan_wakeone(lock->lock_wc, &lock->lock_spl); 
-    spinlock_release(&lock->lock_spl);
+    spinlock_acquire(&cv->cv_spl);
+    wchan_wakeone(lock->lock_wc, &cv->cv_spl); 
+    spinlock_release(&cv->cv_spl);
 }
 
 void
 cv_broadcast(struct cv *cv, struct lock *lock)
 {
   (void)cv;
-  spinlock_acquire(&lock->lock_spl);
-  wchan_wakeall(lock->lock_wc, &lock->lock_spl);
-  spinlock_release(&lock->lock_spl);
+  spinlock_acquire(&cv->cv_spl);
+  wchan_wakeall(lock->lock_wc, &cv->cv_spl);
+  spinlock_release(&cv->cv_spl);
 }

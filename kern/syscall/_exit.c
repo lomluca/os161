@@ -26,9 +26,10 @@ void _exit(int code) {
 	struct proc* cur_p;
 	cur_t = curthread;
 	cur_p = curthread->t_proc;
+	cur_p->exit_code = code;
 	cur_t->exit_code = code;
+	V(cur_p->sem);
 	thread_exit();
-	proc_destroy(cur_p);
 	return;
 }
 	
