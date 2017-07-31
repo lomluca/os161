@@ -216,16 +216,6 @@ lock_release(struct lock *lock)
 	spinlock_release(&lock->lock_spl);
 }
 
-void
-lock_release_atomic(struct lock* lock)
-{
-  KASSERT(lock != NULL);
-  KASSERT(lock_do_i_hold(lock) == true);
-  
-  lock->owner = NULL;
-  wchan_wakeone(lock->lock_wc, &lock->lock_spl); 
-}
-
 bool
 lock_do_i_hold(struct lock *lock)
 {

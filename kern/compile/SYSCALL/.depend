@@ -459,7 +459,8 @@ stdio_syscalls.o: ../../syscall/stdio_syscalls.c ../../include/types.h \
  includelinks/kern/machine/setjmp.h ../../include/proc.h \
  ../../include/current.h includelinks/machine/current.h \
  ../../include/synch.h ../../include/vm.h includelinks/machine/vm.h \
- ../../include/mainbus.h ../../include/vfs.h ../../include/device.h \
+ ../../include/mainbus.h ../../include/vfs.h ../../include/uio.h \
+ ../../include/kern/iovec.h ../../include/vnode.h ../../include/device.h \
  ../../include/syscall.h ../../include/test.h ../../include/version.h \
  autoconf.h
 time_syscalls.o: ../../syscall/time_syscalls.c ../../include/types.h \

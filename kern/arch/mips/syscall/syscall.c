@@ -116,17 +116,25 @@ syscall(struct trapframe *tf)
 	    case SYS_write:
 		n_chars = tf->tf_a2;
 		string = (char*)tf->tf_a1;
-		err = sys_write(string, n_chars);
+		err = sys_write((int)tf->tf_a0, string, n_chars);
 		break;
 
  	    case SYS_read:
 	        n_chars = tf->tf_a2;
 		string = (char*)tf->tf_a1;
-		err = sys_read(string, n_chars);
+		err = sys_read((int)tf->tf_a0, string, n_chars);
 	        break;
 
 	    case SYS__exit:
 		_exit(tf->tf_a0);
+		break;
+
+	    case SYS_open:
+	        err = sys_open((char*)tf->tf_a0, (int)tf->tf_a1, &retval);
+	        break;
+
+	    case SYS_close:
+	        err = sys_close(tf->tf_a0);
 		break;
 
 	    /* Add stuff here */
